@@ -23,6 +23,8 @@ use aws_sdk_s3::types::ByteStream;
 use serde::Deserialize;
 use serde::Serialize;
 
+use futures::future::join_all;
+
 use crate::constant;
 
 pub struct S3Client {
@@ -146,16 +148,23 @@ impl S3Client {
             let path = format!("{}{}{}", file_path, path::MAIN_SEPARATOR, bucket.bucket_name);
             log::info!("Exporting bucket {} to {}", bucket.bucket_name, path);
             let objects = self.list_objects(bucket.bucket_name.to_string()).await?;
+            let mut v = Vec::new();
             for object in objects {
-                let path = format!("{}{}{}", path, path::MAIN_SEPARATOR, object.object_name.clone());
-                std::fs::create_dir_all(path::Path::new(&path).parent().unwrap())?;
-                log::info!("Exporting object {} to {}", object.object_name.clone(), path.clone());
-                let data = self.get_object(bucket.bucket_name.clone(), object.object_name.clone()).await?;
-                match std::fs::write(path.clone(), data) {
-                    Ok(_) => log::info!("Exported object {} to {}", object.object_name.clone(), path),
-                    Err(e) => log::error!("Error exporting object {} to {}: {}", object.object_name.clone(), path.clone(), e),
-                }
+                v.push(self.backup_object(bucket.bucket_name.to_string(), object.object_name.to_string(), path.to_string()));
             }
+            join_all(v).await;
+        }
+        Ok(())
+    }
+
+    async fn backup_object(&self, bucket_path: String, bucket_name: String, object_name: String) -> Result<(), Box<dyn std::error::Error>> {
+        let path = format!("{}{}{}", bucket_path, path::MAIN_SEPARATOR, object_name.clone());
+        std::fs::create_dir_all(path::Path::new(&path).parent().unwrap())?;
+        log::info!("Exporting object {} to {}", object_name.clone(), path.clone());
+        let data = self.get_object(bucket_name, object_name.clone()).await?;
+        match std::fs::write(path.clone(), data) {
+            Ok(_) => log::info!("Exported object {} to {}", object_name.clone(), path),
+            Err(e) => log::error!("Error exporting object {} to {}: {}", object_name.clone(), path.clone(), e),
         }
         Ok(())
     }
