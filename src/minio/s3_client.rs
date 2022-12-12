@@ -142,8 +142,13 @@ impl S3Client {
         Ok(())
     }
 
-    pub async fn backup(&self, file_path: String) -> Result<(), Box<dyn std::error::Error>> {
-        let buckets = self.list_buckets().await?;
+    pub async fn backup(&self, file_path: String, bucket_name: String) -> Result<(), Box<dyn std::error::Error>> {
+        let mut buckets = Vec::new();
+        if bucket_name == "null" || bucket_name.is_empty() {
+            buckets = self.list_buckets().await?;
+        } else {
+            buckets.push(ListBucketResp{bucket_name});
+        }
         for bucket in buckets {
             let path = format!("{}{}{}", file_path, path::MAIN_SEPARATOR, bucket.bucket_name);
             log::info!("Exporting bucket {} to {}", bucket.bucket_name, path);
@@ -175,7 +180,7 @@ impl S3Client {
             let bucket_name = child_dir.file_name().to_str().unwrap().to_string();
             let bucket_path = child_dir.path().to_str().unwrap().to_string();
             log::info!("Restoring bucket {} from {}", bucket_name, bucket_path);
-            match self.create_bucket(CreateBucketReq {bucket_name: bucket_name.clone()}).await {
+            match self.create_bucket(CreateBucketReq { bucket_name: bucket_name.clone() }).await {
                 Ok(_) => {
                     log::info!("Bucket {} created", bucket_name);
                 }
@@ -185,8 +190,7 @@ impl S3Client {
             }
             let prefix = "";
             match self.upload_dir(bucket_name, prefix.to_string(), &bucket_path).await {
-                Ok(_) => {
-                }
+                Ok(_) => {}
                 Err(e) => {
                     log::error!("Failed to upload dir {}: prefix: {} {}", bucket_path, prefix, e);
                 }
@@ -210,8 +214,7 @@ impl S3Client {
                     format!("{}/{}", prefix, object_name)
                 };
                 match self.upload_dir(bucket_name.clone(), new_prefix.to_string(), &file_path).await {
-                    Ok(_) => {
-                    }
+                    Ok(_) => {}
                     Err(e) => {
                         log::error!("Failed to upload dir {}: prefix: {} {}", file_path, new_prefix, e);
                     }

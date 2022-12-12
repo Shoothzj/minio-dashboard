@@ -62,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let s3_client = s3_client::new(cli.host, cli.port, cli.access_key, cli.secret_key);
             match backup.action.as_str() {
                 "backup" => {
-                    s3_client.backup(backup.path).await?;
+                    s3_client.backup(backup.path, backup.bucket_name).await?;
                 }
                 "restore" => {
                     s3_client.restore(backup.path).await?;
