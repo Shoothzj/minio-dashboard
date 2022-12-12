@@ -48,6 +48,9 @@ struct Backup {
     /// Path to the import location
     #[arg(short, long)]
     path: String,
+    /// backup bucket name
+    #[arg(short, long)]
+    bucket_name: String,
 }
 
 #[tokio::main]
